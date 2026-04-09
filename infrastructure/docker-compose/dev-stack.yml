@@ -1,0 +1,495 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - soc-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: "-Xmx384M -Xms384M"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      retries: 5
+    networks:
+      - soc-net
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      bash -c "kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic raw-logs ;
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic enriched-events ;
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic alerts ;
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1 --topic triaged-alerts ;
+      echo All topics created."
+    networks:
+      - soc-net
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    profiles: ["observability"]
+    ports: ["9308:9308"]
+    command: ["--kafka.server=kafka:9092"]
+    networks:
+      - soc-net
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports: ["9200:9200"]
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    deploy:
+      resources:
+        limits:
+          memory: 1152M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sku admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD} https://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"]
+      interval: 40s
+      timeout: 10s
+      retries: 5
+    networks:
+      soc-net:
+        aliases:
+          - node-0.example.com
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    ports: ["5601:5601"]
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch:9200"]'
+      OPENSEARCH_SSL_VERIFICATIONMODE: none
+    depends_on:
+      - opensearch
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    networks:
+      - soc-net
+
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.7.0
+    entrypoint:
+      - /bin/sh
+      - -c
+      - mkdir -p /var/ossec/etc/shared /var/ossec/logs/alerts && touch /var/ossec/etc/shared/ar.conf /var/ossec/logs/alerts/alerts.json /var/ossec/logs/alerts/alerts.log && chown -R wazuh:wazuh /var/ossec/etc/shared /var/ossec/logs/alerts && exec /init
+    ports:
+      - "1514:1514/udp"
+      - "1515:1515"
+      - "55000:55000"
+    volumes:
+      - wazuh-data:/var/ossec/data
+      - wazuh-logs:/var/ossec/logs
+      - ../../collection/wazuh-config/ossec.conf:/var/ossec/etc/ossec.conf
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    networks:
+      - soc-net
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["storage"]
+    command: server /data --console-address ":9001"
+    ports: ["9000:9000", "9001:9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 20s
+      retries: 5
+    networks:
+      - soc-net
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-opensearch-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../dashboards/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ../../dashboards/grafana/datasources:/etc/grafana/provisioning/datasources
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - soc-net
+
+  prometheus:
+    image: prom/prometheus:v2.49.0
+    ports: ["9090:9090"]
+    volumes:
+      - ../../observability/prometheus:/etc/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    networks:
+      - soc-net
+
+  neo4j:
+    image: neo4j:5.15-community
+    profiles: ["advanced-ml"]
+    ports: ["7474:7474", "7687:7687"]
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_dbms_memory_heap_initial__size: 256m
+      NEO4J_dbms_memory_heap_max__size: 256m
+      NEO4J_dbms_memory_pagecache_size: 128m
+    volumes:
+      - neo4j-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - soc-net
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:latest
+    command: ["./shufflebackend", "--skip-tls-verify"]
+    ports:
+      - "5001:5001"
+    networks:
+      - soc-net
+    environment:
+      - SHUFFLE_APP_SDK_VERSION=1.2.0
+      - SHUFFLE_OPENSEARCH_URL=https://node-0.example.com:9200
+      - SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY=true
+      - SHUFFLE_SKIPSSL_VERIFY=true
+      - SHUFFLE_CLOUDRUN_DATABASE_URL=opensearch:9200
+      - SHUFFLE_OPENSEARCH_API_ROOT=https://node-0.example.com:9200
+      - SHUFFLE_OPENSEARCH_API_USER=admin
+      - SHUFFLE_OPENSEARCH_API_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
+      - SHUFFLE_OPENSEARCH_USERNAME=admin
+      - SHUFFLE_OPENSEARCH_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
+      - SHUFFLE_ENCRYPTION_KEY=${SHUFFLE_ENCRYPTION_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    restart: always
+
+  shuffle-frontend:
+    image: ghcr.io/shuffle/shuffle-frontend:latest
+    ports:
+      - "3001:80"
+    networks:
+      - soc-net
+    environment:
+      - BACKEND_HOSTNAME=shuffle-backend
+    depends_on:
+      - shuffle-backend
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    restart: always
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:latest
+    networks:
+      - soc-net
+    environment:
+      - SHUFFLE_APP_SDK_VERSION=1.2.0
+      - ORBORUS_CONTAINER_NAME=shuffle-orborus
+      - SHUFFLE_BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=1.40
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    restart: always
+
+  wazuh-kafka-bridge:
+    build:
+      context: ../../collection/wazuh-kafka-bridge
+    depends_on:
+      wazuh-manager:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    volumes:
+      - wazuh-logs:/var/ossec/logs:ro
+    environment:
+      WAZUH_ALERT_LOG: /var/ossec/logs/alerts/alerts.json
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: raw-logs
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    networks:
+      - soc-net
+    restart: always
+
+  detection-engine:
+    build:
+      context: ../../detection/flink-jobs
+    profiles: ["stream-processing"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../../detection/flink-config:/app/config:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - soc-net
+    restart: always
+
+  anomaly-detector:
+    build:
+      context: ../../ml-models/anomaly-detection
+    depends_on:
+      kafka:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OPENSEARCH_HOST: opensearch:9200
+      OPENSEARCH_USER: admin
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_ADMIN_PASSWORD}
+      OPENSEARCH_TRAINING_INDEX: anomaly_training_seed
+      MODEL_PATH: /app/models/model.pkl
+      FORCE_RETRAIN: "true"
+    volumes:
+      - anomaly-model:/app/models
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    networks:
+      - soc-net
+    restart: on-failure
+
+  llm-triage:
+    build:
+      context: ../../ml-models/llm-triage
+    profiles: ["advanced-ml"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - soc-net
+    restart: always
+
+  gnn-inference:
+    build:
+      context: ../../ml-models/ueba
+    profiles: ["advanced-ml"]
+    ports: ["8000:8000"]
+    depends_on:
+      - neo4j
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - soc-net
+    restart: always
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["advanced-ml"]
+    ports: ["11434:11434"]
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - soc-net
+    restart: always
+
+  automation-engine:
+    build:
+      context: ../../automation
+    profiles: ["automation"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - soc-net
+    restart: always
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: zero-trust-soc-vault
+    ports: ["8200:8200"]
+    volumes:
+      - ../../infrastructure/vault/config:/vault/config:ro
+      - ../../infrastructure/vault/data:/vault/file
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    entrypoint: ["vault"]
+    command: ["server", "-config=/vault/config/vault.json"]
+    cap_add:
+      - IPC_LOCK
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    networks:
+      - soc-net
+    restart: always
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: zero-trust-soc-keycloak
+    command: start-dev --import-realm
+    ports: ["8080:8080"]
+    volumes:
+      - ../../identity/keycloak:/opt/keycloak/data/import
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
+      KC_DB: dev-file
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    networks:
+      - soc-net
+    restart: always
+
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: zero-trust-soc-suricata
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    volumes:
+      - ../../collection/suricata/suricata.yaml:/etc/suricata/suricata.yaml
+      - suricata-logs:/var/log/suricata
+    command: ["-c", "/etc/suricata/suricata.yaml", "-i", "eth0"]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: always
+
+  suricata-bridge:
+    build:
+      context: ../../collection/suricata
+    depends_on:
+      kafka:
+        condition: service_healthy
+      suricata:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: raw-logs
+      SURICATA_LOG_FILE: /var/log/suricata/eve.json
+    volumes:
+      - suricata-logs:/var/log/suricata:ro
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    networks:
+      - soc-net
+    restart: always
+
+  zeek:
+    image: zeek/zeek:latest
+    profiles: ["network-sensor"]
+    container_name: zero-trust-soc-zeek
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    volumes:
+      - ../../collection/zeek/scripts:/opt/zeek/share/zeek/site/custom
+      - wazuh-data:/opt/zeek/logs
+    command: ["zeek", "-i", "eth0", "custom/soc-config.zeek"]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: always
+
+volumes:
+  opensearch-data:
+  wazuh-data:
+  wazuh-logs:
+  minio-data:
+  grafana-data:
+  neo4j-data:
+  ollama-data:
+  anomaly-model:
+  suricata-logs:
+
+networks:
+  soc-net:
+    driver: bridge
