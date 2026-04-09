@@ -1,0 +1,47 @@
+{
+  "id": "soc-platform",
+  "realm": "soc-platform",
+  "enabled": true,
+  "users": [
+    {
+      "username": "soc_analyst",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__SOC_ANALYST_INITIAL_PASSWORD__",
+          "temporary": true
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "grafana",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "__KEYCLOAK_GRAFANA_CLIENT_SECRET__",
+      "redirectUris": [
+        "https://localhost:3000/*"
+      ]
+    },
+    {
+      "clientId": "opensearch-security",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "__KEYCLOAK_OPENSEARCH_CLIENT_SECRET__",
+      "redirectUris": [
+        "https://localhost:9200/*"
+      ]
+    },
+    {
+      "clientId": "shuffle-soar",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "__KEYCLOAK_SHUFFLE_CLIENT_SECRET__",
+      "redirectUris": [
+        "https://localhost:3001/*"
+      ]
+    }
+  ]
+}
