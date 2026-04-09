@@ -1,8 +1,10 @@
 FROM python:3.9.18-slim
-RUN groupadd -g 1000 soc && useradd -u 1000 -g soc -m -s /bin/bash socuser
+RUN groupadd -g 1000 soc \
+    && useradd -u 1000 -g soc -m -s /bin/bash socuser \
+    && mkdir -p /app \
+    && chown socuser:soc /app
 
 WORKDIR /app
-RUN chown socuser:soc /app
 
 RUN pip install --no-cache-dir confluent-kafka requests
 
