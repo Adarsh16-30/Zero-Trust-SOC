@@ -1,0 +1,32 @@
+%YAML 1.1
+---
+# Basic Suricata Config for SOC Platform
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/16,10.0.0.0/8,172.16.0.0/12]"
+    EXTERNAL_NET: "!$HOME_NET"
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+        - http
+        - dns
+        - tls
+
+rule-files:
+  - suricata.rules
+
+app-layer:
+  protocols:
+    tls:
+      enabled: yes
+    dcerpc:
+      enabled: yes
+    dns:
+      enabled: yes
+    http:
+      enabled: yes
