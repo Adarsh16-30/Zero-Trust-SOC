@@ -9,7 +9,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "ReplaceWithStrongAnalystPassword",
+          "value": "analyst_password",
           "temporary": true
         }
       ]
@@ -20,7 +20,7 @@
       "clientId": "grafana",
       "enabled": true,
       "publicClient": false,
-      "secret": "ReplaceWithGrafanaClientSecret",
+      "secret": "grafana_secret",
       "redirectUris": [
         "https://localhost:3000/*"
       ]
@@ -29,7 +29,7 @@
       "clientId": "opensearch-security",
       "enabled": true,
       "publicClient": false,
-      "secret": "ReplaceWithOpenSearchClientSecret",
+      "secret": "opensearch_secret",
       "redirectUris": [
         "https://localhost:9200/*"
       ]
@@ -38,7 +38,7 @@
       "clientId": "shuffle-soar",
       "enabled": true,
       "publicClient": false,
-      "secret": "ReplaceWithShuffleClientSecret",
+      "secret": "shuffle_secret",
       "redirectUris": [
         "https://localhost:3001/*"
       ]
