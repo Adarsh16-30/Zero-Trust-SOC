@@ -1,0 +1,21 @@
+title: SQL Injection Attempt
+status: experimental
+description: Detects basic SQL injection patterns in web logs (Wazuh/Suricata).
+logsource:
+    product: wazuh
+    service: apache
+detection:
+    selection:
+        data.url|contains:
+            - "UNION SELECT"
+            - "information_schema"
+            - "OR 1=1"
+            - "SLEEP("
+    condition: selection
+falsepositives:
+    - Penetration testing
+    - Legitimate SQL-related documentation searches
+level: high
+tags:
+    - attack.t1190
+    - attack.initial_access
