@@ -1,0 +1,50 @@
+name: Production Readiness Check
+
+on:
+  push:
+    branches: [ main, production ]
+  pull_request:
+    branches: [ main, production ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup dummy .env for validation
+        run: |
+          cp infrastructure/docker-compose/.env.example infrastructure/docker-compose/.env
+
+      - name: Validate Docker Compose Config
+        run: |
+          cd infrastructure/docker-compose
+          docker compose -f prod-stack.yml config --quiet
+
+      - name: Scan Dockerfiles (Hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          # Ignore minor APT/PIP warnings for flexibility
+          ignore: DL3008,DL3013
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for Secrets (Trufflehog)
+        uses: trufflesecurity/trufflehog@v3.82.0
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: Vulnerability Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'

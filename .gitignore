@@ -1,0 +1,65 @@
+# Secrets & Security
+infrastructure/docker-compose/.env
+infrastructure/docker-compose/.env.prod
+infrastructure/vault/init_keys.json
+infrastructure/vault/init_keys.json.bak.*
+infrastructure/vault/data/
+infrastructure/backups/*.tar.gz
+**/*.pem
+**/*.key
+**/*.crt
+**/*.key.backup
+infrastructure/tls/certs/*.key
+infrastructure/tls/certs/*.csr
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ML models (large binary files)
+ml-models/**/*.pkl
+ml-models/**/*.pt
+ml-models/**/*.onnx
+
+# Logs & Debugging
+*.log
+*.log.*
+debug-logs/
+
+# Development & Setup (kept in git history but not in production)
+WINDOWS_SETUP_GUIDE.md
+WINDOWS_QUICK_CHECKLIST.md
+COMPLETE_SOC_OPERATIONS_GUIDE.md
+PRODUCTION_RELEASE_CHECKLIST.md
+PRODUCTION_REMEDIATION_PLAN.md
+compliance/INCIDENT_AND_ROLLBACK_RUNBOOK.md
+compliance/SECRET_ROTATION_RUNBOOK.md
+compliance/CIS_Hardening.md
+compliance/reports/
+detection/sigma-rules/upstream/.github/
+detection/sigma-rules/upstream/Releases.md
+detection/sigma-rules/upstream/documentation/
+detection/sigma-rules/upstream/unsupported/
+detection/sigma-rules/upstream/**/*.md
+
+# Test Files
+detection/sigma-rules/upstream/tests/test_*.py
+detection/sigma-rules/upstream/tests/*_test.py
+detection/sigma-rules/upstream/tests/check-baseline-local.sh
+detection/sigma-rules/upstream/tests/deprecated_rules.py
+detection/sigma-rules/upstream/tests/promote_rules_status.py
+detection/sigma-rules/upstream/tests/reference-archiver.py
+detection/sigma-rules/upstream/tests/sigma-package-release.py
+detection/sigma-rules/upstream/tests/validate-sigma-schema/
+
+# OS & IDE
+.DS_Store
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
