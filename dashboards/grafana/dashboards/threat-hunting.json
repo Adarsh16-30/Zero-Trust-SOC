@@ -1,0 +1,150 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "OpenSearch",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [{
+        "query": "audit_category:FAILED_LOGIN",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_request_effective_user.keyword", "settings": { "size": "10", "order": "desc", "orderBy": "1" } }]
+      }],
+      "title": "Rare Process Executions",
+      "type": "table"
+    },
+    {
+      "datasource": "OpenSearch",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_category.keyword", "settings": { "size": "8" } }]
+      }],
+      "title": "Anomaly Score Distribution",
+      "type": "piechart"
+    },
+    {
+      "id": 3,
+      "title": "Security Events Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "5m" } }]
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Top Event Sources (24h)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_node_name.keyword", "settings": { "size": "20" } }]
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Top Audit Categories",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 22, "w": 6, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_category.keyword", "settings": { "size": "10", "order": "desc", "orderBy": "1" } }]
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Alert Timeline by Source",
+      "type": "timeseries",
+      "gridPos": { "x": 6, "y": 22, "w": 6, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [
+          { "type": "terms", "field": "audit_category.keyword", "settings": { "size": "3" } },
+          { "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "30m" } }
+        ]
+      }]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["soc", "threat-hunting"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "title": "Threat Hunting Dashboard",
+  "uid": "threat-hunting",
+  "version": 2
+}

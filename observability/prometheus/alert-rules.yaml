@@ -1,0 +1,92 @@
+groups:
+  - name: soc-platform-health
+    rules:
+
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_group_lag > 50000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Detection pipeline falling behind — {{ $value }} events queued"
+          action: "Check detection-engine and anomaly-detector container logs"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumer_group_lag > 200000
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Detection pipeline critically behind — {{ $value }} events queued. Possible blind spot."
+
+      - alert: AnomalyDetectorDown
+        expr: absent(up{job="anomaly-detector"}) or up{job="anomaly-detector"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Anomaly detection service is down — ML alerts not being generated"
+
+      - alert: DetectionEngineDown
+        expr: absent(up{job="detection-engine"}) or up{job="detection-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Detection engine is down — Sigma rule alerts not being generated"
+
+      - alert: WazuhBridgeDown
+        expr: absent(up{job="wazuh-kafka-bridge"}) or up{job="wazuh-kafka-bridge"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Wazuh-Kafka bridge is down — endpoint events not reaching pipeline"
+
+      - alert: OpenSearchDiskHigh
+        expr: (opensearch_fs_total_total_in_bytes - opensearch_fs_total_available_in_bytes) / opensearch_fs_total_total_in_bytes > 0.80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenSearch disk over 80% — cold tier archival needed"
+
+      - alert: CertificateExpiringSoon
+        expr: (tls_certificate_expiry_timestamp_seconds - time()) < (14 * 24 * 3600)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS Certificate for {{ $labels.instance }} expires in less than 14 days"
+
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers_count < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka broker is unreachable — ingestion pipeline halted"
+
+      - alert: OpenSearchClusterRed
+        expr: opensearch_cluster_status{status="red"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OpenSearch cluster status is RED — data at risk"
+
+      - alert: VaultSealed
+        expr: vault_core_unsealed == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Vault is SEALED — services cannot retrieve secrets"
+
+      - alert: BackupFailed
+        expr: soc_backup_last_success_timestamp == 0 or (time() - soc_backup_last_success_timestamp) > 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SOC backup has not succeeded in the last 24 hours"

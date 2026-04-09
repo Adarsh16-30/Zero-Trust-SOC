@@ -1,0 +1,32 @@
+global:
+  smtp_smarthost: 'SMTP_SMARTHOST_PLACEHOLDER'
+  smtp_from: 'SMTP_FROM_PLACEHOLDER'
+  smtp_auth_username: 'SMTP_USER_PLACEHOLDER'
+  smtp_auth_password: 'SMTP_PASSWORD_PLACEHOLDER'
+  smtp_require_tls: true
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'email-notifications'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'email-critical'
+
+receivers:
+  - name: 'email-notifications'
+    email_configs:
+      - to: 'ALERT_RECIPIENT_PLACEHOLDER'
+        send_resolved: true
+
+  - name: 'email-critical'
+    email_configs:
+      - to: 'ALERT_RECIPIENT_PLACEHOLDER'
+        send_resolved: true
+        headers:
+          Subject: '🚨 SOC CRITICAL: {{ .GroupLabels.alertname }}'
+
+

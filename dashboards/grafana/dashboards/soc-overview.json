@@ -1,0 +1,106 @@
+{
+  "title": "Zero-Trust SOC Overview",
+  "uid": "soc-overview",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Security Events (24h)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }]
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Failed Login Events",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "audit_category:FAILED_LOGIN",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }]
+      }]
+    },
+    {
+      "id": 3,
+      "title": "SSL Exceptions",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "audit_category:SSL_EXCEPTION",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }]
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Container CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "datasource": "Prometheus",
+      "targets": [{
+        "expr": "rate(container_cpu_usage_seconds_total[5m]) * 100",
+        "legendFormat": "{{name}}"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Kafka Consumer Lag",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+      "datasource": "Prometheus",
+      "targets": [{
+        "expr": "kafka_consumer_group_lag",
+        "legendFormat": "{{consumergroup}} - {{topic}}"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Alerts Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "10m" } }]
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Top Alert Rules",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 22, "w": 6, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_category.keyword", "settings": { "size": "10", "order": "desc", "orderBy": "1" } }]
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Alerts by Severity",
+      "type": "piechart",
+      "gridPos": { "x": 6, "y": 22, "w": 6, "h": 6 },
+      "datasource": "OpenSearch",
+      "targets": [{
+        "query": "*",
+        "timeField": "@timestamp",
+        "metrics": [{ "type": "count", "id": "1" }],
+        "bucketAggs": [{ "type": "terms", "field": "audit_request_layer.keyword", "settings": { "size": "5" } }]
+      }]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: OpenSearch
+    uid: OpenSearch
+    type: grafana-opensearch-datasource
+    access: proxy
+    url: https://opensearch:9200
+    jsonData:
+      flavor: opensearch
+      version: "2.11.0"
+      database: "security-auditlog-*"
+      pplEnabled: true
+      timeField: "@timestamp"
+      tlsSkipVerify: true
+    secureJsonData:
+      basicAuthPassword: "$__env{OPENSEARCH_ADMIN_PASSWORD}"
+    basicAuth: true
+    basicAuthUser: admin
