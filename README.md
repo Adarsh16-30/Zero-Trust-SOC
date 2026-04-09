@@ -8,7 +8,18 @@ A high-performance, open-source Security Operations Center (SOC) stack built on 
 
 ---
 
-## 🏗️ Architecture
+## 🌟 Why Zero-Trust SOC? (Differentiators)
+Unlike commercial platforms (Splunk, Datadog, MS Sentinel) that charge strictly by ingestion volume and rely on cloud APIs, this platform is designed as a fully localized, low-cost robust engine:
+
+1. **True Data Sovereignty**: All AI runs locally. Logs never leave your infrastructure. Local Graph Neural Networks (GNN) and Llama3 instances ensure that sensitive corporate telemetry is never leaked to third-party endpoints.
+2. **Zero-Cost Telemetry Scale**: By heavily leveraging Kafka to decouple ingestion from storage, you only pay the storage penalty on *actual* triaged threats, drastically dropping hardware/database costs compared to flat per-GB billing.
+3. **Dual-Layer Analytics**: Combines traditional Deterministic analysis (Sigma rules) with advanced Probabilistic AI (Random Forest & Graph Tracking). This uncovers structural anomalies and "Living off the Land" behaviors that zero-day exploits typically bypass.
+4. **Millisecond Isolation**: Integrates a closed-loop SOAR pipeline that immediately fires `iptables` drop configurations upon confirming critical alert vectors—no human intervention required. 
+
+---
+
+## 🏗️ Architecture Flow
+
 
 The platform uses a modular, event-driven architecture centered around Kafka, ensuring high throughput and resilience.
 
@@ -32,19 +43,20 @@ graph TD
         LLM --> K_TRIAGED[Topic: triaged-alerts]
     end
 
+    subgraph "SOAR & Automated Response"
+        K_TRIAGED --> SHUF[Shuffle SOAR Dashboard]
+        K_TRIAGED --> RC[Automated Response Engine]
+        RC --> |Block IP via IPTable| S2
+        RC --> |Log Incident| OS
+    end
+
     subgraph "Storage & Visibility"
-        K_RAW & K_ALERTS & K_TRIAGED --> OS[(OpenSearch)]
+        K_RAW & K_ALERTS & K_TRIAGED --> OS[(OpenSearch Index)]
         OS --> OSD[OS Dashboards]
-        OS --> GRAF[Grafana]
+        OS --> GRAF[Grafana Visuals]
     end
 
-    subgraph "SOAR & Response"
-        K_TRIAGED --> SHUF[Shuffle SOAR]
-        K_TRIAGED --> RC[Response Coordinator]
-        RC --> |Containment| S2
-    end
-
-    subgraph "Security Infrastructure"
+    subgraph "Infrastructure & Access Control"
         KV[Hashicorp Vault] --> |Secrets| ALL[All Services]
         KC[Keycloak SSO] --> |Auth| OSD & GRAF & SHUF
     end

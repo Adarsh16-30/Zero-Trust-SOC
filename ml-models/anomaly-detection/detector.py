@@ -127,10 +127,10 @@ def train_model(X_train, y_true=None, model_path="/app/model.pkl"):
     """
     Train IsolationForest with incremental tree building and verbose output.
     """
-    n_estimators_total = 150
+    n_estimators_total = 300
     n_stages = 10
     trees_per_stage = n_estimators_total // n_stages
-    contamination = 0.02
+    contamination = 0.035
 
     print("\n" + "=" * 65)
     print("  MODEL TRAINING — IsolationForest Anomaly Detector")

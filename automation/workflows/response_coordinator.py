@@ -6,6 +6,7 @@ import smtplib
 import ssl
 import requests
 from collections import defaultdict
+from datetime import datetime
 from confluent_kafka import Consumer
 
 # Configuration
@@ -13,6 +14,13 @@ KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 INPUT_TOPIC = os.getenv("INPUT_TOPIC", "triaged-alerts")
 COOLDOWN_SECONDS = int(os.getenv("COOLDOWN_SECONDS", "3600"))
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() in ("true", "1", "yes")
+
+# OpenSearch Configuration for Action Logging
+OPENSEARCH_HOST = os.getenv("OPENSEARCH_HOST", "opensearch")
+OPENSEARCH_PORT = os.getenv("OPENSEARCH_PORT", "9200")
+OPENSEARCH_USER = os.getenv("OPENSEARCH_USER", "admin")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
+
 
 # SMTP Configuration
 SMTP_SERVER = os.getenv("SMTP_SERVER")
@@ -59,17 +67,45 @@ class ResponseTracker:
     def record_action(self, action_type, identifier, alert):
         key = f"{action_type}:{identifier}"
         self.blocked[key] = time.time()
-        self.action_log.append({
-            "timestamp": time.time(),
+        
+        severity = alert.get("ai_analysis", {}).get("triage_severity", alert.get("severity", "unknown"))
+        action_doc = {
+            "timestamp": datetime.fromtimestamp(time.time()).isoformat() + "Z", # ISODate for OpenSearch
             "action": action_type,
             "identifier": identifier,
             "rule_id": alert.get("rule_id", "unknown"),
-            "severity": alert.get("ai_analysis", {}).get("triage_severity", "unknown"),
-        })
+            "severity": severity,
+            "source_alert": alert
+        }
+        
+        self.action_log.append(action_doc)
+        log_action_to_opensearch(action_doc)
 
     @property
     def total_actions(self):
         return len(self.action_log)
+
+def log_action_to_opensearch(action_doc):
+    """Write the action to OpenSearch for dashboard visibility."""
+    if not OPENSEARCH_PASSWORD:
+        return
+        
+    url = f"https://{OPENSEARCH_HOST}:{OPENSEARCH_PORT}/soc-actions/_doc"
+    try:
+        response = requests.post(
+            url, 
+            json=action_doc, 
+            auth=(OPENSEARCH_USER, OPENSEARCH_PASSWORD), 
+            verify=False,
+            timeout=5
+        )
+        if response.status_code in (200, 201):
+            print("  ✓ Action indexed to OpenSearch")
+        else:
+            print(f"  ⚠ Failed to index action to OS: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"  ⚠ Opensearch indexing failed: {e}")
+
 
 
 def extract_source_ip(alert):
