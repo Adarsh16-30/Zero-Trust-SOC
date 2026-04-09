@@ -1,15 +1,13 @@
 FROM python:3.9.18-slim
+
 RUN groupadd -g 1000 soc \
     && useradd -u 1000 -g soc -m -s /bin/bash socuser \
     && mkdir -p /app \
-    && chown socuser:soc /app
+    && chown socuser:soc /app \
+    && pip install --no-cache-dir confluent-kafka requests
 
 WORKDIR /app
-
-RUN pip install --no-cache-dir confluent-kafka requests
-
 COPY --chown=socuser:soc triage.py .
-
 USER socuser
 
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092

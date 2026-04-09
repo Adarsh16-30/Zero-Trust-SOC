@@ -1,17 +1,15 @@
 FROM python:3.10.13-slim
+
 RUN groupadd -g 1000 soc \
     && useradd -u 1000 -g soc -m -s /bin/bash socuser \
     && mkdir -p /app \
-    && chown socuser:soc /app
-
-WORKDIR /app
-
-RUN pip install --no-cache-dir confluent-kafka pandas scikit-learn numpy requests joblib \
+    && chown socuser:soc /app \
+    && pip install --no-cache-dir confluent-kafka neo4j \
     && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir torch-geometric
 
+WORKDIR /app
 COPY --chown=socuser:soc ueba_engine.py .
-
 USER socuser
 
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
